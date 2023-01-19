@@ -28,7 +28,7 @@ python3 run_measurement.py -v 1 -s 1 -n 10 -c 1
 with the following arguments: 
 
 - v: Set verbose output. Print measurement values to terminal.
-- s: Save measurement values to csv.
+- s: Save measurement values to csv file with entries: channel number, UNIX timestamp, capacitance in pF.
 - n: Number of measurements taken and averaged per cycle and LM.
 - c: Close port after measurement.
 
