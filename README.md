@@ -40,3 +40,8 @@ exec(open('run_measurement.py').read())
 ```
 
 Any measurement can be regularly stopped by keyboard interrupt (`Ctrl`+`C`).
+
+To plot the latest capacitance evolution for a quick check of the SLMs and LLMs (separate plots per LM type) 
+run the `plotting.py` script. For more convenient plotting use the 
+[Grafana interface](https://xenoscope-sc.physik.uzh.ch/grafana/dashboards) to visualize the data stored 
+on the InfluxDB. 
