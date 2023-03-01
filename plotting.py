@@ -24,8 +24,8 @@ class Plotting:
         df: Dataframe with the latest capacitance values.
         names_dict: Channel to level meter mapping dictionary for plot labels.
     """
-    def __int__(self, save_plots: bool = True, show_plots: bool = False,
-                data_path: str = './outputs/', save_dir: str = './plots/'):
+    def __init__(self, save_plots: bool = True, show_plots: bool = False,
+                 data_path: str = './outputs/', save_dir: str = './plots/'):
         # Set plot output
         self.save_plots = save_plots
         self.show_plots = show_plots
