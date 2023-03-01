@@ -3,6 +3,7 @@ Plot latest level evolution.
 """
 
 # Imports
+import numpy as np
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
@@ -44,7 +45,7 @@ class Plotting:
         # Convert UNIX time stamp to datetime for Central European Time
         self.df['datetime'] = pd.to_datetime(self.df['timestamp'], unit='s',
                                              utc=True).map(lambda x: x.tz_convert('Europe/Berlin'))
-        # Channel to level meter mapping dictionary for plot labels
+        # Channel to level meter mapping dictionary for Xenoscope level meter plot labels
         self.names_dict = {'1': 'SLM 1', '2': 'SLM 2', '3': 'SLM 3',
                            '4': 'LLM (upper)', '5': 'LLM (lower)', '6': 'Reference 100 pF'}
 
@@ -56,15 +57,22 @@ class Plotting:
             save_name: Save name plots.
         """
         fig = plt.figure()
+        show_legend = False
         for channel in channels:
+            if channel >= 0:
+                label = self.names_dict[str(channel)]
+                show_legend = True
+            else:
+                label = None
             plt.plot(self.df[self.df.channel == int(channel)].datetime,
                      self.df[self.df.channel == int(channel)].capacitance,
-                     label=self.names_dict[str(channel)])
+                     label=label)
         plt.xlabel('Time')
         plt.ylabel('Capacitance [pF]')
         fig.autofmt_xdate()
-        legend = plt.legend(loc=2, bbox_to_anchor=(1.005, 1.023))
-        legend.get_frame().set_linewidth(matplotlib.rcParams['axes.linewidth'])
+        if show_legend:
+            legend = plt.legend(loc=2, bbox_to_anchor=(1.005, 1.023))
+            legend.get_frame().set_linewidth(matplotlib.rcParams['axes.linewidth'])
         if self.save_plots:
             plt.savefig(os.path.join(self.save_dir, save_name + '.png'))
             plt.savefig(os.path.join(self.save_dir, save_name + '.pdf'))
@@ -76,7 +84,12 @@ class Plotting:
 
 if __name__ == "__main__":
     plotting = Plotting(save_plots=True, show_plots=False, data_path='./outputs/', save_dir='./plots/')
-    # Short level meters
-    plotting.plot_capacitances(channels=[1, 2, 3], save_name='SLMs')
-    # Long level meters
-    plotting.plot_capacitances(channels=[4, 5], save_name='LLMs')
+    if np.any((plotting.df.channel >= 1) & (plotting.df.channel <= 3)):
+        # Short level meters Xenoscope
+        plotting.plot_capacitances(channels=[1, 2, 3], save_name='SLMs')
+    if np.any((plotting.df.channel >= 4) & (plotting.df.channel <= 5)):
+        # Long level meters Xenoscope
+        plotting.plot_capacitances(channels=[4, 5], save_name='LLMs')
+    if np.any(plotting.df.channel < 0):
+        # Level meter MarmotX
+        plotting.plot_capacitances(channels=[-1], save_name='LM')

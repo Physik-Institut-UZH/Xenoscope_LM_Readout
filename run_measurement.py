@@ -40,30 +40,34 @@ n_readings = args.nmeasurements
 
 print('Checking config level meter readout...')
 try:
-    # Check if serial port open.
-    device.ser.write(b'getmode\n')
-    read_raw_content = device.ser.readlines()
-    read_raw_content = np.array([el.decode().translate({ord(i): None for i in ' \r\n'}) for el in read_raw_content])
-    # Verify that level meter readout board configured as desired.
-    if read_raw_content.tolist() != ['Sf', 'V0', 'E0', 'D0']:
-        raise ValueError('Level meter readout not set up yet.')
-    print('OK')
+    # Check if serial port open and properly configured.
+    if device.name == 'moxa':
+        device.ser.write(b'getmode\n')
+        read_raw_content = device.ser.readlines()
+        read_raw_content = np.array([el.decode().translate({ord(i): None for i in ' \r\n'}) for el in read_raw_content])
+        # Verify that level meter readout board configured as desired.
+        if read_raw_content.tolist() != ['Sf', 'V0', 'E0', 'D0']:
+            raise ValueError('Level meter readout not set up yet.')
+        print('OK')
+    elif device.name == 'ftdi':
+        device.single_test_measurement_ftdi()
+        print('OK')
 except Exception:
-    print('Incomplete config.')
     device = LMReadout()
 
-print('\n####################\n')
-channels = input('Type the channel numbers to read OR type "a" to read all channels OR\n'
-                 'type "l" to read only LLMs OR type "s" to read only SLMs:')
-channels = channels.strip('\"')
-channels = channels.strip('\'')
-channels = channels.lower()
-if channels not in ['a', 's', 'l']:
-    channels = ' '.join(channels)
-    channels = re.findall(r'\d+', channels)
-    channels = [int(el) for el in channels]
-if type(channels) not in [list, str]:
-    raise TypeError('Unexpected input for channels.')
+if device.name == 'moxa':
+    print('\n####################\n')
+    channels = input('Type the channel numbers to read OR type "a" to read all channels OR\n'
+                     'type "l" to read only LLMs OR type "s" to read only SLMs:')
+    channels = channels.strip('\"')
+    channels = channels.strip('\'')
+    channels = channels.lower()
+    if channels not in ['a', 's', 'l']:
+        channels = ' '.join(channels)
+        channels = re.findall(r'\d+', channels)
+        channels = [int(el) for el in channels]
+    if type(channels) not in [list, str]:
+        raise TypeError('Unexpected input for channels.')
 
 print('\n####################\n')
 print('Starting measurement.\n')
@@ -78,7 +82,10 @@ if save_to_csv:
 
 while k is False:
     try:
-        out = device.read_channels(channels=channels, n_readings=n_readings, mode='a')
+        if device.name == 'moxa':
+            out = device.read_channels_moxa(channels=channels, n_readings=n_readings, mode='a')
+        elif device.name == 'ftdi':
+            out = device.read_channel_ftdi(n_readings=n_readings)
         if verbose:
             print(*out, sep='\n')
         if save_to_csv:
