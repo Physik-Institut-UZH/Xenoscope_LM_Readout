@@ -1,12 +1,16 @@
 """
-Script to run continuous measurements with level meter readout board.
+Script to run continuous measurements with custom multiple level meter readout board or
+single level meter smartec UTI evaluation board.
 Press 'Ctrl'+'C' (KeyboardInterrupt) to stop acquisition.
 """
 
+import numpy as np
+import time
 import re
 import csv
 import os
 import argparse
+from setup_device import LMReadout
 
 parser = argparse.ArgumentParser(
     description=('Script to run continuous measurements with level meter readout board. '
@@ -34,20 +38,19 @@ verbose = args.verbose
 save_to_csv = args.save
 n_readings = args.nmeasurements
 
-
 print('Checking config level meter readout...')
 try:
     # Check if serial port open.
-    ser.write(b'getmode\n')
-    read_raw_content = ser.readlines()
+    device.ser.write(b'getmode\n')
+    read_raw_content = device.ser.readlines()
     read_raw_content = np.array([el.decode().translate({ord(i): None for i in ' \r\n'}) for el in read_raw_content])
     # Verify that level meter readout board configured as desired.
     if read_raw_content.tolist() != ['Sf', 'V0', 'E0', 'D0']:
         raise ValueError('Level meter readout not set up yet.')
     print('OK')
 except Exception:
-    exec(open('setup_device.py').read())
-
+    print('Incomplete config.')
+    device = LMReadout()
 
 print('\n####################\n')
 channels = input('Type the channel numbers to read OR type "a" to read all channels OR\n'
@@ -75,7 +78,7 @@ if save_to_csv:
 
 while k is False:
     try:
-        out = read_channels(channels=channels, n_readings=n_readings, mode='a')
+        out = device.read_channels(channels=channels, n_readings=n_readings, mode='a')
         if verbose:
             print(*out, sep='\n')
         if save_to_csv:
@@ -89,5 +92,5 @@ while k is False:
         print('\nDone.')
         k = True
         if args.close:
-            ser.close()
-            print('Closing port {}.'.format(ser.name))
+            device.ser.close()
+            print('Closing port {}.'.format(device.ser.name))
