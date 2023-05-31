@@ -9,14 +9,15 @@ long levelmeter (LLM, channels 4-5). Channel 6 is equipped with a reference capa
 MarmotX accommodates a single level meter. All level meters allow for a capacitive liquid xenon level measurement 
 in the respective setups. 
 
-Prerequisites to run this code and set up the communication to the level meter readout devices via a 
-Moxa UPort 1130 USB-to-Serial converter (connecting to the custom multiple level meter readout board for Xenoscope), 
-or the integrated FTDI chip on the smartec UTI evaluation board for MarmotX:
+Prerequisites to run this code and set up the communication to the level meter readout devices via the 
+Moxa UPort 1130 USB-to-Serial converter or the Tripp Lite U208-002-IND 2-Port RS-422/RS-485 USB to Serial FTDI Adapter 
+(connecting to the custom multiple level meter readout board for Xenoscope), 
+as well as in case of using the integrated FTDI chip on the smartec UTI evaluation board for MarmotX:
 
-- Determine the port number using the `check_usb_ports.sh` script and provide appropriate permissions for that port, 
+- Determine the port name using the `check_usb_ports.sh` script and provide appropriate permissions for that port, 
   e.g. with `sudo chmod 777 /dev/ttyUSB0`.
 
-Additional prerequisites (Xenoscope level meter readout board only):
+Additional prerequisites (Moxa UPort 1130 USB-to-Serial converter only):
 
 - Install setserial on the machine (`sudo apt-get install -y setserial`).
 - Install and load drivers for Moxa UPort 1100 series (simply run `./mxinstall` in unpacked drivers directory 

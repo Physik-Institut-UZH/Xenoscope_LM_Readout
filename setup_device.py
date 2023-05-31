@@ -2,6 +2,8 @@
 Set up communication to level meter readout device via
 
 - Moxa UPort 1130 USB-to-Serial converter for custom multiple level meter readout board (-> Xenoscope), or
+- Tripp Lite U208-002-IND 2-Port RS-422/RS-485 USB to Serial FTDI Adapter with COM Retention (USB-B to DB9 F/M) as
+  alternative for the custom multiple level meter readout board (-> Xenoscope), or
 - integrated FTDI chip on single level meter smartec UTI evaluation board (-> MarmotX).
 
 Prerequisites:
@@ -9,7 +11,7 @@ Prerequisites:
 - Determine port number using check_usb_ports.sh script and set appropriate rights for that port, e.g. with
   `sudo chmod 777 /dev/ttyUSB0`.
 
-Prerequisites (Xenoscope level meter readout board only):
+Prerequisites (Moxa UPort 1130 USB-to-Serial converter only):
 
 - Install setserial (`sudo apt-get install -y setserial`).
 - Install and load drivers for Moxa UPort 1100 series (simply run `./mxinstall` in unpacked drivers directory).
@@ -30,37 +32,42 @@ class LMReadout:
 
     Attributes:
         port: Port name string, usually '/dev/ttyUSB0'.
-        name: Device name, 'moxa' (for custom multiple level meter readout board)
-            or 'ftdi' (for single level meter smartec UTI evaluation board).
+        name: Device name, 'moxa' / 'ftdi_dual' (for custom multiple level meter readout board)
+            or 'ftdi_ft230x' (for single level meter smartec UTI evaluation board).
     """
     def __init__(self):
         # Find port
-        self.port, self.name = self.find_port(name_options=('moxa', 'ftdi'))
+        self.port, self.name = self.find_port(name_options=('moxa', 'ftdi_ft230x', 'ftdi_dual'))
         if self.name == 'moxa':
             # Check standard
             self.check_rs422(p=self.port)
             # Setup device
-            self.ser = self.setup_moxa()
+            self.ser = self.setup_readout_board()
             # Print mode device
             self.get_mode()
-        elif self.name == 'ftdi':
+        elif self.name == 'ftdi_ft230x':
             # Setup device
-            self.ser = self.setup_ftdi()
-        if self.name not in ('moxa', 'ftdi'):
+            self.ser = self.setup_smartec_board()
+        if self.name == 'ftdi_dual':
+            # Setup device
+            self.ser = self.setup_readout_board()
+            # Print mode device
+            self.get_mode()
+        if self.name not in ('moxa', 'ftdi_ft230x', 'ftdi_dual'):
             raise NotImplementedError('Name {} not a valid option, select from '
-                                      'implemented (moxa, ftdi).'.format(self.name))
+                                      'implemented (moxa, ftdi_ft230x, ftdi_dual).'.format(self.name))
 
     @staticmethod
-    def find_port(name_options: tuple = ('moxa', 'ftdi')) -> tuple:
+    def find_port(name_options: tuple = ('moxa', 'ftdi_ft230x', 'ftdi_dual')) -> tuple:
         """Find USB port with either Moxa UPort 1130 USB-to-Serial converter or FTDI FT230X Basic UART chip.
 
         Args:
             name_options: Tuple of strings contained in possible connection names
-                as displayed by check_usb_ports.sh script. Default: ('moxa', 'ftdi').
+                as displayed by check_usb_ports.sh script. Default: ('moxa', 'ftdi_ft230x', 'ftdi_dual').
 
         Returns:
             ports: Port name string, usually '/dev/ttyUSB0'.
-            name: Device name string, 'moxa' or 'ftdi'.
+            name: Device name string, 'moxa', 'ftdi_ft230x', or 'ftdi_dual'.
         """
         # Run check_usb_ports.sh script to list ports.
         print('Finding port for level meter readout device.')
@@ -70,18 +77,22 @@ class LMReadout:
         ports_dict = {}
         for name in name_options:
             ports_dict[name] = [el for el in ports if name in el.lower()]
-        if not np.any([bool(ports_dict.get(el)) for el in ports_dict]):
+        found_device_types = [k for k, v in ports_dict.items() if bool(v)]
+        if not bool(found_device_types):
             raise ValueError('Found no ports that match {}.'.format(name_options))
-        elif np.sum([len(ports_dict.get(el)) for el in ports_dict]) > 1:
-            raise ValueError('Found multiple ports that match {}.'.format(name_options))
+        elif (np.sum([len(ports_dict.get(el)) for el in ports_dict]) > 1) and \
+                not ((len(found_device_types) == 1) and (found_device_types[0] == 'ftdi_dual')):
+            raise ValueError('Found multiple ports that match {}: {}.'.format(name_options, ports_dict))
         else:
+            if found_device_types[0] == 'ftdi_dual':
+                print('Connected to 2-Port RS-422/RS-485 USB to Serial FTDI Adapter. Will use PORT 1.')
             name = [el for el in ports_dict if bool(ports_dict.get(el))][0]
             ports = ports_dict[name]
-            ports = ports[0].split(' - ')[0]
+            ports = np.sort(ports)[0].split(' - ')[0]
             print(ports)
-            if name not in ('moxa', 'ftdi'):
+            if name not in ('moxa', 'ftdi_ft230x', 'ftdi_dual'):
                 raise NotImplementedError('Name {} not a valid option, select from '
-                                          'implemented (moxa, ftdi).'.format(name))
+                                          'implemented (moxa, ftdi_ft230x, ftdi_dual).'.format(name))
         return ports, name
 
     @staticmethod
@@ -100,7 +111,7 @@ class LMReadout:
         else:
             print('OK')
 
-    def setup_moxa(self, echo: bool = False, verbose: bool = False, debug: bool = False, speed: str = 'f'):
+    def setup_readout_board(self, echo: bool = False, verbose: bool = False, debug: bool = False, speed: str = 'f'):
         """Setup communication to level meter readout board.
 
         Args:
@@ -158,7 +169,7 @@ class LMReadout:
 
         return ser
 
-    def setup_ftdi(self, mode_sf: str = b's', mode: str = b'4'):
+    def setup_smartec_board(self, mode_sf: str = b's', mode: str = b'4'):
         """Setup communication to UTI evaluation board and set wanted mode.
 
         Args:
@@ -227,9 +238,9 @@ class LMReadout:
         """Print built-in help on level meter readout board.
         """
         print('\n########## Help info ##########')
-        if self.name == 'moxa':
+        if self.name in ('moxa', 'ftdi_dual'):
             self.ser.write(b'help\n')  # "h" or "help"
-        elif self.name == 'ftdi':
+        elif self.name == 'ftdi_ft230x':
             self.ser.write(b'H')  # “H”, “h” or “?”
         else:
             raise NotImplementedError('Method not supported for used device {}.'.format(self.name))
@@ -239,7 +250,7 @@ class LMReadout:
     def about_board(self):
         """Print built-in information on level meter readout board.
         """
-        if self.name == 'moxa':
+        if self.name in ('moxa', 'ftdi_dual'):
             self.ser.write(b'about\n')  # "about"
         else:
             raise NotImplementedError('Method not supported for used device {}.'.format(self.name))
@@ -248,14 +259,14 @@ class LMReadout:
     def get_mode(self):
         """Output state of settings level meter readout board.
         """
-        if self.name == 'moxa':
+        if self.name in ('moxa', 'ftdi_dual'):
             print('Settings level meter readout board:')
             self.ser.write(b'getmode\n')  # "getmode"
         else:
             raise NotImplementedError('Method not supported for used device {}.'.format(self.name))
         self.print_lines()
 
-    def single_test_measurement_ftdi(self):
+    def single_test_measurement_smartec_board(self):
         """Perform single test measurement for single level meter smartec UTI evaluation board.
         May be slow due to the use of `readlines()` instead of `readline()`.
         Meant for demonstration and debugging purposes.
@@ -283,7 +294,7 @@ class LMReadout:
         print('Converted output (dec):')
         print(str(read_conv_content) + ' = [Tba, Tca, Tda]')
 
-    def single_test_measurement_moxa(self, channel: int = 1, n_readings: int = 10, mode: str = 'a'):
+    def single_test_measurement_readout_board(self, channel: int = 1, n_readings: int = 10, mode: str = 'a'):
         """Take single channel test measurement with level meter readout board.
         Meant for demonstration and debugging purposes.
 
@@ -313,8 +324,8 @@ class LMReadout:
 
         return read_raw_content
 
-    def measure_capacitance_ftdi(self, cref: float = 100, n_iterations_per_loop: int = 5,
-                                 verbosity: int = 0) -> np.ndarray:
+    def measure_capacitance_smartec_board(self, cref: float = 100, n_iterations_per_loop: int = 5,
+                                          verbosity: int = 0) -> np.ndarray:
         """Conduct `n_iterations_per_loop` consecutive measurement cycles 
         and return average calculated capacitance.
         
@@ -385,7 +396,7 @@ class LMReadout:
 
         return cx
 
-    def read_channel_ftdi(self, n_readings: int = 5) -> list:
+    def read_channel_smartec_board(self, n_readings: int = 5) -> list:
         """Take continuous multiple channels measurement with smartec UTI evaluation board.
 
         Args:
@@ -399,13 +410,14 @@ class LMReadout:
             raise ValueError('n_readings must be an integer.')
 
         timestamp = time.time()
-        capacitance = self.measure_capacitance_ftdi(n_iterations_per_loop=n_readings)
+        capacitance = self.measure_capacitance_smartec_board(n_iterations_per_loop=n_readings)
         out = [[-1], [timestamp], [capacitance]]
         out = [list(el) for el in zip(*out)]  # Transpose list
 
         return out
 
-    def read_channels_moxa(self, channels: Union[List, str] = 'a', n_readings: int = 10, mode: str = 'a') -> list:
+    def read_channels_readout_board(self, channels: Union[List, str] = 'a', n_readings: int = 10,
+                                    mode: str = 'a') -> list:
         """Take continuous multiple channels measurement with custom multiple level meter readout board.
 
         Args:
