@@ -73,6 +73,7 @@ print('\n####################\n')
 print('Starting measurement.\n')
 print('Channel, UNIX Time Stamp, Capacitance [pf]')
 k = False
+fails = 0
 if save_to_csv:
     it = 0
     max_it = 2000
@@ -95,9 +96,28 @@ while k is False:
                 write = csv.writer(f)
                 write.writerows(out)
             it += 1
+        fails = 0
     except KeyboardInterrupt:
         print('\nDone.')
         k = True
         if args.close:
             device.ser.close()
             print('Closing port {}.'.format(device.ser.name))
+    except Exception:
+        fails += 1
+        print('Failed to perform measurement {} time(s).'.format(int(fails)))
+        print('Trying to reset connection to levelmeter readout board...')
+        time.sleep(120)  # wait for 2 minutes to give time to recover
+        try:
+            device.ser.close()
+            print('Closing port {}.'.format(device.ser.name))
+        except Exception:
+            print('Failed to close ports. Appear to already be closed.')
+        try:
+            device = LMReadout()
+            print('Successfully reset connection to levelmeter readout board.')
+        except Exception:
+            print('Failed to reset connection to levelmeter readout board.')
+        if fails > 5:
+            k = True
+            print('Exceeded 5 attempts to recover levelmeter readout. Aborting.')
